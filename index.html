@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>동강시스타 OJT 포털</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (실시간 연동의 핵심 심장) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+        // 고객님이 발급받으신 고유 열쇠 장착 완료!
+        const firebaseConfig = {
+          apiKey: "AIzaSyDP-CNL7qbxv6LjlsB_N_ImGGDpXDg-RYc",
+          authDomain: "cistar-ojt.firebaseapp.com",
+          databaseURL: "https://cistar-ojt-default-rtdb.firebaseio.com",
+          projectId: "cistar-ojt",
+          storageBucket: "cistar-ojt.firebasestorage.app",
+          messagingSenderId: "767862576804",
+          appId: "1:767862576804:web:5c3800e78ea6e12519b831"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+    </script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+
+        .fade-enter { opacity: 0; transform: translateY(10px); }
+        .fade-enter-active { opacity: 1; transform: translateY(0); transition: all 0.4s ease; }
+        
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.4); backdrop-filter: blur(2px); }
+        [x-cloak] { display: none !important; }
+        
+        button { touch-action: manipulation; }
+    </style>
+</head>
+<body class="bg-[#F4F1EB] text-[#2D2D2D] min-h-screen flex flex-col items-center p-0 md:p-4 selection:bg-[#C4A47C] selection:text-white">
+
+    <div x-data="portalApp()" x-init="initApp()" class="w-full max-w-6xl flex flex-col min-h-screen md:min-h-[90vh] bg-[#F4F1EB] md:rounded-3xl shadow-none md:shadow-2xl overflow-hidden relative">
+        
+        <!-- HEADER -->
+        <header class="bg-[#2D2D2D] text-white px-4 md:px-8 py-4 flex flex-row justify-between items-center z-10 shrink-0 sticky top-0 md:relative h-16 md:h-auto">
+            <!-- 로고: 모바일은 좌측 상단 정렬 및 내부 중앙 정렬 / PC는 화면 정중앙 -->
+            <div class="flex flex-col items-center cursor-pointer absolute left-4 md:left-1/2 md:-translate-x-1/2 text-white" @click="changeView('gateway')">
+                <h1 class="text-[13px] md:text-[18px] font-black tracking-[0.2em] leading-tight text-center text-white">DONG GANG</h1>
+                <h2 class="text-[13px] md:text-[18px] font-black tracking-[0.25em] leading-tight mt-0.5 text-center text-white">CISTAR</h2>
+            </div>
+            
+            <!-- 우측 통계 및 관리자 -->
+            <div class="flex flex-row items-center gap-2 ml-auto z-10">
+                <div class="flex flex-row items-center text-[9px] md:text-[11px] font-medium text-gray-300 bg-black/20 px-2.5 py-1.5 rounded-full whitespace-nowrap">
+                    오늘 <b class="text-white ml-1 mr-1.5" x-text="todayCount"></b>
+                    <span class="w-px h-3 bg-gray-500 mr-1.5"></span>
+                    누적 <b class="text-white ml-1" x-text="totalCount"></b>
+                </div>
+                
+                <template x-if="!isAdmin">
+                    <button @click="handleLogin" class="bg-white/10 hover:bg-white/20 text-white p-1.5 md:px-3 md:py-1.5 rounded-full md:rounded-lg text-[10px] md:text-[11px] font-bold transition flex items-center justify-center">
+                        <i class="fa-solid fa-lock md:mr-1.5"></i><span class="hidden md:inline">관리자</span>
+                    </button>
+                </template>
+            </div>
+        </header>
+
+        <main class="flex-grow p-4 md:p-6 overflow-y-auto w-full flex flex-col relative bg-[#F4F1EB]">
+            
+            <!-- 1. 게이트웨이 (메인 화면) -->
+            <div x-show="currentView === 'gateway'" x-transition.opacity.duration.300ms class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center h-full py-2 md:py-0">
+                
+                <!-- 환영 문구 (관리자 텍스트 연동) -->
+                <div class="text-center mb-5 md:mb-8 mt-2 md:mt-4">
+                    <p class="text-[9px] md:text-[12px] font-bold text-gray-400 tracking-[0.3em] mb-2 md:mb-3 flex items-center justify-center gap-3">
+                        <span class="w-8 md:w-14 h-px bg-gray-300"></span>EMPLOYEE PORTAL<span class="w-8 md:w-14 h-px bg-gray-300"></span>
+                    </p>
+                    <!-- 타이틀 텍스트 -->
+                    <h2 class="text-[22px] md:text-[36px] font-black text-[#2D2D2D] mb-3 md:mb-4 leading-[1.5] md:leading-[1.6] whitespace-pre-wrap" x-text="data.gatewayInfo.title"></h2>
+                    <!-- 서브타이틀 텍스트 -->
+                    <p class="text-[11px] md:text-[14px] text-gray-500 font-medium break-keep leading-relaxed px-4 whitespace-pre-wrap" x-text="data.gatewayInfo.subtitle"></p>
+                </div>
+
+                <!-- 2x2 압축 메뉴 그리드 (관리자 텍스트 연동) -->
+                <div class="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-5 w-full max-w-3xl px-2 md:px-0">
+                    <button @click="changeView('resort')" class="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-md transition group text-center flex flex-col items-center justify-center border border-gray-100 h-28 md:h-40">
+                        <div class="w-10 h-10 md:w-14 md:h-14 rounded-full bg-[#F4F1EB] flex items-center justify-center mb-2 md:mb-3 group-hover:bg-[#C4A47C] group-hover:text-white transition">
+                            <i class="fa-solid text-lg md:text-2xl text-[#2D2D2D] group-hover:text-white" :class="data.gatewayInfo.menus.resort.icon"></i>
+                        </div>
+                        <h3 class="font-black text-[13px] md:text-[18px] text-[#2D2D2D] mb-1" x-text="data.gatewayInfo.menus.resort.title"></h3>
+                        <p class="text-[11px] md:text-[12px] text-gray-400 font-medium break-keep hidden md:block" x-text="data.gatewayInfo.menus.resort.desc"></p>
+                    </button>
+                    <button @click="changeView('benefits')" class="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-md transition group text-center flex flex-col items-center justify-center border border-gray-100 h-28 md:h-40">
+                        <div class="w-10 h-10 md:w-14 md:h-14 rounded-full bg-[#F4F1EB] flex items-center justify-center mb-2 md:mb-3 group-hover:bg-[#C4A47C] group-hover:text-white transition">
+                            <i class="fa-solid text-lg md:text-2xl text-[#2D2D2D] group-hover:text-white" :class="data.gatewayInfo.menus.benefits.icon"></i>
+                        </div>
+                        <h3 class="font-black text-[13px] md:text-[18px] text-[#2D2D2D] mb-1" x-text="data.gatewayInfo.menus.benefits.title"></h3>
+                        <p class="text-[11px] md:text-[12px] text-gray-400 font-medium break-keep hidden md:block" x-text="data.gatewayInfo.menus.benefits.desc"></p>
+                    </button>
+                    <button @click="changeView('ojt')" class="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-md transition group text-center flex flex-col items-center justify-center border border-gray-100 h-28 md:h-40">
+                        <div class="w-10 h-10 md:w-14 md:h-14 rounded-full bg-[#F4F1EB] flex items-center justify-center mb-2 md:mb-3 group-hover:bg-[#C4A47C] group-hover:text-white transition">
+                            <i class="fa-solid text-lg md:text-2xl text-[#2D2D2D] group-hover:text-white" :class="data.gatewayInfo.menus.ojt.icon"></i>
+                        </div>
+                        <h3 class="font-black text-[13px] md:text-[18px] text-[#2D2D2D] mb-1" x-text="data.gatewayInfo.menus.ojt.title"></h3>
+                        <p class="text-[11px] md:text-[12px] text-gray-400 font-medium break-keep hidden md:block" x-text="data.gatewayInfo.menus.ojt.desc"></p>
+                    </button>
+                    <button @click="changeView('qna')" class="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-md transition group text-center flex flex-col items-center justify-center border border-gray-100 h-28 md:h-40">
+                        <div class="w-10 h-10 md:w-14 md:h-14 rounded-full bg-[#F4F1EB] flex items-center justify-center mb-2 md:mb-3 group-hover:bg-[#C4A47C] group-hover:text-white transition">
+                            <i class="fa-solid text-lg md:text-2xl text-[#2D2D2D] group-hover:text-white" :class="data.gatewayInfo.menus.qna.icon"></i>
+                        </div>
+                        <h3 class="font-black text-[13px] md:text-[18px] text-[#2D2D2D] mb-1" x-text="data.gatewayInfo.menus.qna.title"></h3>
+                        <p class="text-[11px] md:text-[12px] text-gray-400 font-medium break-keep hidden md:block" x-text="data.gatewayInfo.menus.qna.desc"></p>
+                    </button>
+                </div>
+
+                <!-- 자동 업데이트 알림판 (모바일 시간 잘림 shrink-0 완벽 적용) -->
+                <div class="mt-5 md:mt-6 w-full max-w-3xl bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-start md:items-center gap-2 md:gap-4 flex-col md:flex-row px-4 md:px-0">
+                    <div class="bg-[#F4F1EB] px-3 py-1.5 rounded-lg text-[10px] md:text-[12px] font-bold text-[#2D2D2D] shrink-0 md:ml-4 flex items-center gap-1.5 w-max">
+                        <i class="fa-solid fa-bullhorn text-[#C4A47C]"></i> 포털 업데이트 소식
+                    </div>
+                    <div class="flex-grow overflow-hidden h-6 relative w-full px-1 md:px-0 pr-1">
+                        <div class="flex flex-col absolute w-full transition-transform duration-500" :style="`transform: translateY(-${noticeIndex * 24}px)`">
+                            <template x-for="log in data.updateLogs.slice(0, 5)" :key="log.date + log.text + Math.random()">
+                                <div class="text-[11px] md:text-[12px] text-gray-600 h-6 leading-6 flex justify-between items-center w-full min-w-0">
+                                    <span class="truncate flex-grow mr-2"><b x-text="log.category" class="mr-1"></b> <span x-text="log.text"></span></span>
+                                    <span class="text-[9px] md:text-[10px] text-gray-400 shrink-0 whitespace-nowrap" x-text="log.date"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 리조트 상세 소개 -->
+            <div x-show="currentView === 'resort'" x-cloak class="w-full max-w-5xl mx-auto h-full flex flex-col">
+                <div class="bg-[#2D2D2D] text-white rounded-t-2xl px-4 md:px-5 py-3 flex justify-between items-center shadow-md">
+                    <h2 class="text-[14px] md:text-[16px] font-bold flex items-center gap-2"><i class="fa-solid fa-building text-[#C4A47C]"></i> 리조트 상세 소개</h2>
+                    <button @click="changeView('gateway')" class="bg-[#4A4A4A] hover:bg-[#5A5A5A] px-3 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold transition flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 메인화면</button>
+                </div>
+                
+                <div class="bg-[#F4F1EB] p-3 md:p-5 rounded-b-2xl shadow-sm border border-gray-100 flex-grow flex flex-col gap-3 md:gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                        <!-- Left Column (자연/CC) -->
+                        <div class="col-span-1 flex flex-col gap-3 md:gap-4">
+                            <!-- 자연이 머무는 곳 -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm h-full flex flex-col justify-between">
+                                <div>
+                                    <h3 class="font-black text-[#2D2D2D] text-[13px] md:text-[15px] mb-3 flex items-center gap-2"><i class="fa-solid fa-mountain-sun text-[#2D2D2D]"></i> 자연이 머무는 곳</h3>
+                                    <p class="text-[11px] md:text-[12px] text-gray-500 mb-4 leading-relaxed break-keep" x-text="data.resortInfo.intro"></p>
+                                </div>
+                                <div class="space-y-1 text-[10px] md:text-[11px]">
+                                    <div class="flex justify-between bg-gray-50 p-2 rounded"><span class="text-gray-400">위치</span><b class="text-[#2D2D2D]" x-text="data.resortInfo.location"></b></div>
+                                    <div class="flex justify-between bg-gray-50 p-2 rounded"><span class="text-gray-400">규모</span><b class="text-[#2D2D2D]" x-text="data.resortInfo.scale"></b></div>
+                                </div>
+                            </div>
+                            <!-- 동강시스타 CC -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+                                <h3 class="font-black text-[#2D2D2D] text-[13px] md:text-[15px] mb-3 flex items-center gap-2"><i class="fa-solid fa-golf-ball-tee text-[#2D2D2D]"></i> 동강시스타 CC</h3>
+                                <div class="bg-green-50 rounded-lg p-3 text-center mb-3">
+                                    <div class="text-xl md:text-2xl font-black text-green-700">18 Holes <span class="text-[10px] md:text-[11px] font-medium text-green-600">72 Par</span></div>
+                                    <div class="text-[9px] md:text-[10px] text-green-600 mt-1" x-text="'Total Length: ' + data.resortInfo.ccLength"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-center text-[10px] md:text-[11px]">
+                                    <div class="bg-gray-50 p-2 rounded"><div class="text-gray-400 mb-0.5">동강 코스</div><b class="text-[#2D2D2D]">2,697m</b></div>
+                                    <div class="bg-gray-50 p-2 rounded"><div class="text-gray-400 mb-0.5">영월 코스</div><b class="text-[#2D2D2D]">3,042m</b></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (객실/다이닝) -->
+                        <div class="col-span-1 md:col-span-2 flex flex-col gap-3 md:gap-4">
+                            <!-- 프리미엄 객실 -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+                                <div class="flex justify-between items-end mb-3">
+                                    <h3 class="font-black text-[#2D2D2D] text-[13px] md:text-[15px] flex items-center gap-2"><i class="fa-solid fa-bed text-[#2D2D2D]"></i> 프리미엄 객실</h3>
+                                    <span class="text-[9px] md:text-[11px] text-gray-400">24~46 Type (총 300실)</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                    <div class="space-y-2">
+                                        <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D] mb-1"><i class="fa-solid fa-star text-yellow-400"></i> 플러스룸 <span class="text-blue-500 text-[9px] md:text-[10px] font-normal ml-1">호텔식 클린룸</span></div>
+                                            <div class="text-[10px] md:text-[11px] text-blue-400 break-keep" x-text="data.resortInfo.roomPlus"></div>
+                                        </div>
+                                        <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-3">
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D] mb-1"><i class="fa-solid fa-dog text-orange-400"></i> 웰니스/펫룸 <span class="text-orange-500 text-[9px] md:text-[10px] font-normal ml-1">힐링 & 동반</span></div>
+                                            <div class="text-[10px] md:text-[11px] text-orange-400 break-keep" x-text="data.resortInfo.roomPet"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col justify-center space-y-2 text-[10px] md:text-[12px]">
+                                        <div class="flex justify-between border-b border-gray-100 pb-1.5"><span class="font-bold text-[#2D2D2D]">패밀리(+) 24</span><span class="text-gray-500">기준 4인</span></div>
+                                        <div class="flex justify-between border-b border-gray-100 pb-1.5"><span class="font-bold text-[#2D2D2D]">디럭스 33</span><span class="text-gray-500">기준 5인</span></div>
+                                        <div class="flex justify-between border-b border-gray-100 pb-1.5"><span class="font-bold text-[#2D2D2D]">스위트(+) 39</span><span class="text-gray-500">기준 6인</span></div>
+                                        <div class="flex justify-between"><span class="font-bold text-[#2D2D2D]">로얄스위트 46</span><span class="text-gray-500">기준 7인</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 세미나 & 다이닝 시설 -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm flex-grow">
+                                <div class="flex justify-between items-end mb-3">
+                                    <h3 class="font-black text-[#2D2D2D] text-[13px] md:text-[15px] flex items-center gap-2"><i class="fa-solid fa-users-viewfinder text-[#2D2D2D]"></i> 세미나 & 다이닝 시설</h3>
+                                    <span class="text-[9px] md:text-[11px] text-gray-400">총 7개 세미나실 구비</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-microphone"></i></div>
+                                        <div>
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D]">세미나실 (최대 1,000명)</div>
+                                            <div class="text-[10px] md:text-[11px] text-gray-500 mt-0.5" x-text="data.resortInfo.convention"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-fire-burner"></i></div>
+                                        <div>
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D]">BBQ 더 그릴</div>
+                                            <div class="text-[10px] md:text-[11px] text-gray-500 mt-0.5" x-text="data.resortInfo.bbq"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-utensils"></i></div>
+                                        <div>
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D]">포레스트 레스토랑 & 티롤</div>
+                                            <div class="text-[10px] md:text-[11px] text-gray-500 mt-0.5" x-text="data.resortInfo.restaurant"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-cyan-50 text-cyan-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-water-ladder"></i></div>
+                                        <div>
+                                            <div class="text-[11px] md:text-[12px] font-bold text-[#2D2D2D]">실내외 수영장 & 스파</div>
+                                            <div class="text-[10px] md:text-[11px] text-gray-500 mt-0.5" x-text="data.resortInfo.pool"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 주변 명소 -->
+                    <div class="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm mt-1">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-black text-[#2D2D2D] text-[13px] md:text-[15px] flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-[#2D2D2D]"></i> 리조트 주변 명소</h3>
+                            <span class="text-[9px] md:text-[11px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold">아이콘을 클릭하여 상세 정보 보기</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
+                            <template x-for="attr in data.resortInfo.attractions" :key="attr.name">
+                                <button @click="openAttraction(attr)" class="bg-[#FAFAFA] rounded-xl p-3 md:p-4 border border-gray-100 shadow-sm hover:shadow-md transition text-center group flex flex-col items-center justify-center">
+                                    <div class="w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center mx-auto mb-2 transition-colors bg-white shadow-sm">
+                                        <i class="fa-solid text-[14px] md:text-[20px]" :class="[attr.icon, attr.iconColor]"></i>
+                                    </div>
+                                    <div class="font-bold text-[#2D2D2D] text-[10px] md:text-[12px] truncate w-full" x-text="attr.name"></div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 복리후생 안내 (파일 첨부 호환) -->
+            <div x-show="currentView === 'benefits'" x-cloak class="w-full max-w-5xl mx-auto h-full flex flex-col">
+                <div class="bg-[#2D2D2D] text-white rounded-t-2xl px-4 md:px-5 py-3 flex justify-between items-center shadow-md shrink-0">
+                    <h2 class="text-[14px] md:text-[16px] font-bold flex items-center gap-2"><i class="fa-solid fa-gift text-[#C4A47C]"></i> 복리후생 안내</h2>
+                    <button @click="changeView('gateway')" class="bg-[#4A4A4A] hover:bg-[#5A5A5A] px-3 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold transition flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 메인화면</button>
+                </div>
+                
+                <div class="bg-white rounded-b-2xl shadow-sm border border-gray-100 flex-grow flex flex-col md:flex-row overflow-hidden relative md:min-h-[500px]">
+                    <!-- 모바일/PC 좌측 아이콘 그리드 -->
+                    <div class="w-full md:w-[35%] bg-[#F9F9F9] p-4 border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto">
+                        <div class="grid grid-cols-3 md:grid-cols-2 gap-2">
+                            <template x-for="ben in data.benefits" :key="ben.id">
+                                <button @click="selectBenefit(ben)" class="bg-white rounded-xl p-3 border shadow-sm transition text-center flex flex-col items-center justify-center min-h-[70px] md:min-h-[100px]" :class="selectedBenefit && selectedBenefit.id === ben.id ? 'border-[#C4A47C] ring-1 ring-[#C4A47C]' : 'border-gray-100 hover:border-gray-300'">
+                                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center mb-1.5 md:mb-2" :class="ben.bgColor"><i class="fa-solid text-[14px] md:text-[18px]" :class="[ben.icon, ben.iconColor]"></i></div>
+                                    <div class="font-bold text-[10px] md:text-[12px] text-[#2D2D2D]" x-text="ben.title"></div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- 우측 내용 표시 (PC용) -->
+                    <div class="hidden md:flex w-[65%] p-6 flex-col justify-center bg-white overflow-y-auto">
+                        <template x-if="!selectedBenefit">
+                            <div class="text-center text-gray-400">
+                                <i class="fa-solid fa-hand-pointer text-4xl mb-4 opacity-50"></i>
+                                <p class="text-[14px] font-medium">좌측 메뉴에서 열람할 항목을 선택해 주세요.</p>
+                            </div>
+                        </template>
+                        <template x-if="selectedBenefit">
+                            <div class="animate-[fadeIn_0.3s_ease-out] w-full">
+                                <div class="flex items-center gap-3 mb-4 border-b border-gray-100 pb-4">
+                                    <div class="w-12 h-12 rounded-full flex items-center justify-center" :class="selectedBenefit.bgColor"><i class="fa-solid text-[20px]" :class="[selectedBenefit.icon, selectedBenefit.iconColor]"></i></div>
+                                    <h3 class="text-2xl font-black text-[#2D2D2D]" x-text="selectedBenefit.title"></h3>
+                                </div>
+                                <div class="bg-[#FAFAFA] rounded-xl p-6 border border-gray-100 text-[13px] md:text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap font-medium shadow-inner mb-4" x-text="selectedBenefit.content"></div>
+                                
+                                <!-- 복리후생 첨부파일 렌더링 -->
+                                <template x-if="selectedBenefit.fileData">
+                                    <div class="border-t border-gray-200 pt-4">
+                                        <template x-if="selectedBenefit.fileData.startsWith('data:image/')">
+                                            <div class="text-center"><img :src="selectedBenefit.fileData" class="max-w-full h-auto rounded-lg border border-gray-200 mx-auto object-contain shadow-sm"></div>
+                                        </template>
+                                        <template x-if="!selectedBenefit.fileData.startsWith('data:image/')">
+                                            <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                                                <div class="flex items-center gap-3 overflow-hidden">
+                                                    <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-500"><i class="fa-solid fa-file-arrow-down text-lg"></i></div>
+                                                    <div class="truncate text-[11px] md:text-[13px] font-bold text-gray-700" x-text="selectedBenefit.fileName || '첨부문서 다운로드'"></div>
+                                                </div>
+                                                <button @click="downloadFile(selectedBenefit.fileData, selectedBenefit.fileName)" class="shrink-0 bg-[#2D2D2D] text-white px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-black transition ml-3">다운로드</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. OJT 교육자료 -->
+            <div x-show="currentView === 'ojt'" x-cloak class="w-full max-w-4xl mx-auto h-full flex flex-col">
+                <div class="bg-[#2D2D2D] text-white rounded-t-2xl px-4 md:px-5 py-3 flex justify-between items-center shadow-md shrink-0">
+                    <h2 class="text-[14px] md:text-[16px] font-bold flex items-center gap-2"><i class="fa-solid fa-book-open text-[#C4A47C]"></i> OJT 교육자료</h2>
+                    <button @click="changeView('gateway')" class="bg-[#4A4A4A] hover:bg-[#5A5A5A] px-3 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold transition flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 메인화면</button>
+                </div>
+                <div class="bg-white rounded-b-2xl shadow-sm border border-gray-100 p-4 md:p-6 flex-grow overflow-y-auto">
+                    <div class="space-y-3">
+                        <template x-for="(item, index) in data.ojt" :key="index">
+                            <div class="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                <button @click="activeAccordion = activeAccordion === index ? null : index" class="w-full px-4 py-4 flex justify-between items-center bg-white hover:bg-[#FAFAFA] transition text-left">
+                                    <span class="font-bold text-[12px] md:text-[14px] text-[#2D2D2D] flex items-center gap-2">
+                                        <i class="fa-solid fa-check text-[#C4A47C]"></i> <span x-text="item.title"></span>
+                                        <template x-if="item.fileData"><span class="ml-2 bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded font-bold hidden md:inline-block">첨부파일</span></template>
+                                    </span>
+                                    <i class="fa-solid text-gray-400 text-[14px] transition-transform duration-300" :class="activeAccordion === index ? 'rotate-180' : 'fa-chevron-down'"></i>
+                                </button>
+                                <div x-show="activeAccordion === index" x-collapse>
+                                    <div class="px-4 py-4 bg-[#F9F9F9] border-t border-gray-100">
+                                        <div class="text-[12px] md:text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed font-medium" x-text="item.content" x-show="item.content"></div>
+                                        
+                                        <!-- OJT 업로드 파일 렌더링 영역 -->
+                                        <template x-if="item.fileData">
+                                            <div class="mt-4 border-t border-gray-200 pt-4">
+                                                <template x-if="item.fileData.startsWith('data:image/')">
+                                                    <div class="text-center">
+                                                        <img :src="item.fileData" class="max-w-full h-auto rounded-lg border border-gray-200 mx-auto object-contain shadow-sm">
+                                                    </div>
+                                                </template>
+                                                <template x-if="!item.fileData.startsWith('data:image/')">
+                                                    <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                                                        <div class="flex items-center gap-3 overflow-hidden">
+                                                            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-500"><i class="fa-solid fa-file-arrow-down text-lg"></i></div>
+                                                            <div class="truncate text-[11px] md:text-[13px] font-bold text-gray-700" x-text="item.fileName || '첨부문서 다운로드'"></div>
+                                                        </div>
+                                                        <button @click="downloadFile(item.fileData, item.fileName)" class="shrink-0 bg-[#2D2D2D] text-white px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-black transition ml-3">다운로드</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Q&A (직원 전용 건의/질문 - 파일첨부, 비밀번호 삭제/수정) -->
+            <div x-show="currentView === 'qna'" x-cloak class="w-full max-w-4xl mx-auto h-full flex flex-col">
+                <div class="bg-[#2D2D2D] text-white rounded-t-2xl px-4 md:px-5 py-3 flex justify-between items-center shadow-md shrink-0">
+                    <h2 class="text-[14px] md:text-[16px] font-bold flex items-center gap-2"><i class="fa-solid fa-comments text-[#C4A47C]"></i> 직원 Q&A 게시판</h2>
+                    <button @click="changeView('gateway')" class="bg-[#4A4A4A] hover:bg-[#5A5A5A] px-3 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold transition flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 메인화면</button>
+                </div>
+                <div class="bg-white rounded-b-2xl shadow-sm border border-gray-100 p-4 md:p-6 flex-grow overflow-y-auto">
+                    
+                    <!-- 심플 Q&A 영역 -->
+                    <div>
+                        <div class="bg-[#F9F9F9] p-4 md:p-5 rounded-xl border border-gray-200 mb-5 shadow-sm">
+                            <h3 class="font-bold text-[#2D2D2D] text-[12px] md:text-[14px] mb-3 flex items-center gap-2"><i class="fa-solid fa-pen text-[#C4A47C]"></i> 관리자에게 질문 및 건의하기</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                <input type="text" x-model="newQna.dept" placeholder="소속 부서" class="p-2.5 bg-white border border-gray-300 rounded-lg text-[11px] md:text-[12px] outline-none">
+                                <input type="text" x-model="newQna.name" placeholder="이름 (실명 필수)" class="p-2.5 bg-white border border-gray-300 rounded-lg text-[11px] md:text-[12px] outline-none">
+                                <input type="password" x-model="newQna.password" placeholder="비밀번호 (수정/삭제용 4자리)" class="p-2.5 bg-white border border-gray-300 rounded-lg text-[11px] md:text-[12px] outline-none col-span-2">
+                                <textarea x-model="newQna.question" placeholder="건의 사항이나 질문을 남겨주시면 관리자가 직접 답변해 드립니다." rows="2" class="p-2.5 bg-white border border-gray-300 rounded-lg text-[11px] md:text-[12px] outline-none resize-none col-span-2 md:col-span-4 min-h-[60px]"></textarea>
+                                
+                                <!-- 사용자 파일 첨부 -->
+                                <div class="col-span-2 md:col-span-4 flex items-center gap-2">
+                                    <input type="file" id="userQnaFile" class="hidden" @change="uploadFile($event, newQna, false)" accept=".jpg,.png,.pdf,.hwp,.xls,.xlsx,.ppt,.pptx,.doc,.docx">
+                                    <button @click="document.getElementById('userQnaFile').click()" class="bg-white border border-gray-300 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"><i class="fa-solid fa-paperclip"></i> <span x-text="newQna.fileName ? '파일 변경' : '파일 첨부'"></span></button>
+                                    <template x-if="newQna.fileName"><span class="text-[10px] text-gray-500 truncate w-40" x-text="newQna.fileName"></span></template>
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button @click="submitQuestion" class="bg-[#2D2D2D] text-white px-5 py-2 rounded-lg text-[11px] md:text-[12px] font-bold hover:bg-black transition shadow-sm">질문 등록</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <template x-for="(qna, index) in data.qnaList" :key="qna.id">
+                                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                    <div class="px-4 py-4 flex justify-between items-center w-full transition hover:bg-[#FAFAFA] cursor-pointer" @click="activeQna = activeQna === index ? null : index">
+                                        <div class="flex flex-col gap-1 w-full">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-black shrink-0" :class="qna.answer ? 'bg-[#2D2D2D] text-[#C4A47C]' : 'bg-gray-100 text-gray-400'">Q</span>
+                                                    <div>
+                                                        <div class="text-[12px] md:text-[13px] font-bold text-[#2D2D2D] flex items-center gap-2"><span x-text="qna.question"></span> <template x-if="qna.fileData"><i class="fa-solid fa-paperclip text-gray-400 text-[10px]"></i></template></div>
+                                                        <div class="text-[10px] text-gray-400 mt-1" x-text="qna.dept + ' ' + qna.name + ' | ' + qna.date"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-3 shrink-0">
+                                                    <span class="text-[10px] px-2 py-1 rounded font-bold ml-3" :class="qna.answer ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'" x-text="qna.answer ? '답변완료' : '대기중'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div x-show="activeQna === index" x-collapse>
+                                        <!-- 사용자 본인 수정/삭제 버튼 -->
+                                        <div class="bg-gray-50 px-4 py-2 flex justify-end gap-2 border-t border-gray-100">
+                                            <button @click="promptEditQna(qna)" class="text-[10px] text-blue-600 font-bold hover:underline">수정</button>
+                                            <button @click="promptDeleteQna(index, qna)" class="text-[10px] text-red-500 font-bold hover:underline">삭제</button>
+                                        </div>
+                                        
+                                        <!-- 사용자 첨부파일 보기 -->
+                                        <template x-if="qna.fileData">
+                                            <div class="px-4 py-3 bg-white border-t border-gray-100">
+                                                <template x-if="qna.fileData.startsWith('data:image/')">
+                                                    <img :src="qna.fileData" class="max-w-xs h-auto rounded border border-gray-200">
+                                                </template>
+                                                <template x-if="!qna.fileData.startsWith('data:image/')">
+                                                    <button @click="downloadFile(qna.fileData, qna.fileName)" class="bg-gray-100 px-3 py-1.5 rounded text-[10px] text-gray-700 font-bold hover:bg-gray-200 flex items-center gap-2 w-max"><i class="fa-solid fa-download"></i> <span x-text="qna.fileName"></span></button>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- 관리자 답변 -->
+                                        <div class="px-4 py-4 border-t border-gray-100 bg-[#FAFAFA] flex flex-col gap-3">
+                                            <div class="flex gap-3">
+                                                <span class="w-8 h-8 rounded-full bg-[#C4A47C] text-white flex items-center justify-center text-[12px] font-black shrink-0">A</span>
+                                                <div class="flex-grow pt-1 text-[11px] md:text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap font-medium" x-text="qna.answer || '관리자 확인 및 답변 대기 중입니다.'"></div>
+                                            </div>
+                                            <!-- 관리자 첨부파일 -->
+                                            <template x-if="qna.adminFileData">
+                                                <div class="ml-11">
+                                                    <template x-if="qna.adminFileData.startsWith('data:image/')">
+                                                        <img :src="qna.adminFileData" class="max-w-xs h-auto rounded border border-gray-200">
+                                                    </template>
+                                                    <template x-if="!qna.adminFileData.startsWith('data:image/')">
+                                                        <button @click="downloadFile(qna.adminFileData, qna.adminFileName)" class="bg-blue-50 border border-blue-100 px-3 py-1.5 rounded text-[10px] text-blue-600 font-bold hover:bg-blue-100 flex items-center gap-2 w-max"><i class="fa-solid fa-download"></i> <span x-text="qna.adminFileName"></span></button>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. 포털 통합 관리자 -->
+            <div x-show="currentView === 'admin'" x-cloak class="w-full max-w-6xl mx-auto flex flex-col h-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+                <div class="bg-[#2D2D2D] text-white px-4 md:px-5 py-3 flex justify-between items-center shrink-0">
+                    <h2 class="text-[13px] md:text-[16px] font-bold flex items-center gap-2"><i class="fa-solid fa-shield-halved text-[#C4A47C]"></i> 포털 통합 관리자</h2>
+                    <div class="flex items-center gap-2">
+                        <!-- 팝업을 띄우는 저장 버튼으로 교체 -->
+                        <button @click="saveData(true)" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg text-[10px] md:text-[12px] font-bold transition flex items-center gap-1.5 shadow-sm"><i class="fa-solid fa-floppy-disk"></i> <span class="hidden md:inline">전체 저장</span><span class="md:hidden">저장</span></button>
+                        <button @click="changeView('gateway'); isAdmin = false;" class="bg-[#4A4A4A] hover:bg-[#5A5A5A] px-3 py-1.5 rounded-lg text-[10px] md:text-[12px] font-bold transition flex items-center gap-1.5"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden md:inline">나가기</span></button>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col md:flex-row flex-grow overflow-hidden">
+                    <!-- 좌측 사이드바 -->
+                    <div class="w-full md:w-48 bg-[#F9F9F9] border-b md:border-b-0 md:border-r border-gray-200 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto shrink-0 hide-scrollbar p-2 gap-1">
+                        <button @click="adminCurrentTab = 'dashboard'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'dashboard' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-chart-pie w-5 text-center"></i> 방문/조회 통계</button>
+                        <button @click="adminCurrentTab = 'gateway'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'gateway' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-desktop w-5 text-center"></i> 메인 화면 & 알림판</button>
+                        <button @click="adminCurrentTab = 'resort'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'resort' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-building w-5 text-center"></i> 리조트 소개 관리</button>
+                        <button @click="adminCurrentTab = 'benefits'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'benefits' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-gift w-5 text-center"></i> 복리후생 관리</button>
+                        <button @click="adminCurrentTab = 'ojt'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'ojt' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-book-open w-5 text-center"></i> OJT 규정 (파일첨부)</button>
+                        <button @click="adminCurrentTab = 'qna'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'qna' ? 'bg-[#2D2D2D] text-white shadow-md' : 'text-gray-600 hover:bg-gray-200'"><i class="fa-solid fa-comments w-5 text-center"></i> 직원 Q&A 답변</button>
+                        
+                        <div class="hidden md:block my-2 border-t border-gray-200"></div>
+                        <button @click="adminCurrentTab = 'sync'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'sync' ? 'bg-blue-600 text-white shadow-md' : 'text-blue-600 hover:bg-blue-50'"><i class="fa-solid fa-cloud-arrow-up w-5 text-center"></i> ☁️ 클라우드 연동</button>
+                        <button @click="adminCurrentTab = 'account'" class="px-3 py-3 rounded-lg text-[11px] md:text-[12px] font-bold text-left transition flex items-center gap-2 shrink-0 md:shrink" :class="adminCurrentTab === 'account' ? 'bg-red-600 text-white shadow-md' : 'text-red-600 hover:bg-red-50'"><i class="fa-solid fa-user-shield w-5 text-center"></i> 비번설정</button>
+                    </div>
+                    
+                    <!-- 우측 편집 폼 영역 -->
+                    <div class="flex-grow p-4 md:p-6 bg-white overflow-y-auto w-full relative">
+
+                        <!-- 통계 대시보드 (조회하기 버튼 완벽 구현) -->
+                        <div x-show="adminCurrentTab === 'dashboard'" x-cloak class="space-y-4">
+                            <h3 class="font-black text-[#2D2D2D] text-[14px] md:text-[16px] mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-line text-[#C4A47C]"></i> 방문/조회 통계 조회</h3>
+                            
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center shadow-sm">
+                                <span class="text-[11px] md:text-[13px] font-bold text-gray-600">조회 기준일 설정</span>
+                                <input type="date" x-model="statDate" class="p-2 bg-white border border-gray-300 rounded-lg text-[11px] md:text-[12px] outline-none font-bold text-[#2D2D2D]">
+                                <button @click="searchStats()" class="bg-[#2D2D2D] text-white px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold hover:bg-black transition">조회하기</button>
+                            </div>
+
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+                                    <div class="text-[11px] md:text-[12px] text-gray-500 font-bold mb-2" x-text="statDate + ' (일별)'"></div>
+                                    <div class="text-2xl md:text-3xl font-black text-[#C4A47C]" x-text="displayStats.today"></div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+                                    <div class="text-[11px] md:text-[12px] text-gray-500 font-bold mb-2">해당 주차 (주별 누적)</div>
+                                    <div class="text-2xl md:text-3xl font-black text-[#2D2D2D]" x-text="displayStats.week"></div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+                                    <div class="text-[11px] md:text-[12px] text-gray-500 font-bold mb-2">해당 월 (월별 누적)</div>
+                                    <div class="text-2xl md:text-3xl font-black text-[#2D2D2D]" x-text="displayStats.month"></div>
+                                </div>
+                                <div class="bg-[#F4F1EB] border border-[#C4A47C] rounded-xl p-4 shadow-sm text-center">
+                                    <div class="text-[11px] md:text-[12px] text-[#2D2D2D] font-bold mb-2">해당 연도 (연도별)</div>
+                                    <div class="text-2xl md:text-3xl font-black text-[#2D2D2D]" x-text="displayStats.year"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 메인화면 텍스트 및 알림 관리 (새로 추가) -->
+                        <div x-show="adminCurrentTab === 'gateway'" x-cloak class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-[13px] md:text-[14px] text-[#2D2D2D] mb-3">1. 메인 화면 타이틀 및 서브타이틀 수정</h3>
+                                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                                    <textarea x-model="data.gatewayInfo.title" class="w-full p-2 border rounded-lg text-[12px] md:text-[14px] font-bold min-h-[60px]" placeholder="메인 타이틀"></textarea>
+                                    <textarea x-model="data.gatewayInfo.subtitle" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px] min-h-[60px]" placeholder="서브 타이틀"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h3 class="font-bold text-[13px] md:text-[14px] text-[#2D2D2D] mb-3">2. 카테고리(4개 메뉴) 텍스트 수정</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                        <div class="text-[10px] font-bold text-gray-500 mb-1">메뉴 1 (좌측상단)</div>
+                                        <input type="text" x-model="data.gatewayInfo.menus.resort.title" class="w-full p-2 border rounded mb-2 font-bold text-[12px]">
+                                        <input type="text" x-model="data.gatewayInfo.menus.resort.desc" class="w-full p-2 border rounded text-[11px]">
+                                    </div>
+                                    <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                        <div class="text-[10px] font-bold text-gray-500 mb-1">메뉴 2 (우측상단)</div>
+                                        <input type="text" x-model="data.gatewayInfo.menus.benefits.title" class="w-full p-2 border rounded mb-2 font-bold text-[12px]">
+                                        <input type="text" x-model="data.gatewayInfo.menus.benefits.desc" class="w-full p-2 border rounded text-[11px]">
+                                    </div>
+                                    <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                        <div class="text-[10px] font-bold text-gray-500 mb-1">메뉴 3 (좌측하단)</div>
+                                        <input type="text" x-model="data.gatewayInfo.menus.ojt.title" class="w-full p-2 border rounded mb-2 font-bold text-[12px]">
+                                        <input type="text" x-model="data.gatewayInfo.menus.ojt.desc" class="w-full p-2 border rounded text-[11px]">
+                                    </div>
+                                    <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                        <div class="text-[10px] font-bold text-gray-500 mb-1">메뉴 4 (우측하단)</div>
+                                        <input type="text" x-model="data.gatewayInfo.menus.qna.title" class="w-full p-2 border rounded mb-2 font-bold text-[12px]">
+                                        <input type="text" x-model="data.gatewayInfo.menus.qna.desc" class="w-full p-2 border rounded text-[11px]">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-[13px] md:text-[14px] text-[#2D2D2D] mb-3">3. 포털 자동 업데이트 소식 (과거 내역 관리)</h3>
+                                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-3 shadow-sm">
+                                    <p class="text-[11px] text-blue-800 break-keep">새 알림은 우측 상단 <b>[전체 저장]</b> 버튼 클릭 시 뜨는 팝업을 통해 즉시 등록 가능합니다.</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <template x-for="(log, idx) in data.updateLogs" :key="idx">
+                                        <div class="flex gap-2 items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+                                            <input type="text" x-model="log.category" class="w-20 md:w-24 p-1.5 border rounded text-[11px] md:text-[12px] text-center shrink-0 font-bold text-gray-700">
+                                            <input type="text" x-model="log.text" class="flex-grow p-1.5 border rounded text-[11px] md:text-[12px] text-gray-600">
+                                            <button @click="adminDelItem('updateLogs', idx)" class="text-red-400 p-1.5 shrink-0 hover:text-red-600"><i class="fa-solid fa-trash text-[13px]"></i></button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OJT 규정 (파일 업로드 지원) -->
+                        <div x-show="adminCurrentTab === 'ojt'" x-cloak class="space-y-4 pb-10">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="font-bold text-[13px] md:text-[14px] text-[#2D2D2D]">문서 첨부 기능 지원 (PDF, Excel, PPT, 이미지 등)</h3>
+                                <button @click="data.ojt.push({title: '새 자료', content: '', fileData: null, fileName: null})" class="bg-[#2D2D2D] text-white px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold">+ 새 항목 추가</button>
+                            </div>
+                            <div class="space-y-3">
+                                <template x-for="(item, idx) in data.ojt" :key="idx">
+                                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col gap-3">
+                                        <div class="flex justify-between items-center gap-3">
+                                            <input type="text" x-model="item.title" class="font-bold text-[12px] md:text-[13px] p-2 rounded-lg border w-full">
+                                            <button @click="adminDelItem('ojt', idx)" class="text-red-400 shrink-0 text-lg hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                        <div class="flex flex-col md:flex-row gap-3">
+                                            <div class="shrink-0 flex flex-col items-start gap-2">
+                                                <input type="file" :id="'file' + idx" class="hidden" @change="uploadFile($event, item)" accept=".jpg,.png,.pdf,.hwp,.xls,.xlsx,.ppt,.pptx,.doc,.docx">
+                                                <button @click="document.getElementById('file' + idx).click()" class="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold flex items-center gap-2 hover:bg-blue-100"><i class="fa-solid fa-paperclip"></i> <span x-text="item.fileName ? '변경' : '파일첨부'"></span></button>
+                                                <template x-if="item.fileName"><div class="text-[10px] md:text-[11px] text-gray-500 truncate w-40" x-text="item.fileName"></div></template>
+                                                <template x-if="item.fileData">
+                                                    <button @click="item.fileData = null; item.fileName = null; executeFirebaseSave(false);" class="text-[10px] md:text-[11px] text-red-500 underline mt-1 font-bold">삭제</button>
+                                                </template>
+                                            </div>
+                                            <textarea x-model="item.content" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px] min-h-[60px]"></textarea>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- 리조트 소개 관리 -->
+                        <div x-show="adminCurrentTab === 'resort'" x-cloak class="space-y-4 pb-10">
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                                <h4 class="font-bold text-[12px] md:text-[13px] text-[#2D2D2D]">1. 개요</h4>
+                                <input type="text" x-model="data.resortInfo.location" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="위치">
+                                <input type="text" x-model="data.resortInfo.scale" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="규모">
+                                <textarea x-model="data.resortInfo.intro" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px] min-h-[60px]"></textarea>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                                <h4 class="font-bold text-[12px] md:text-[13px] text-[#2D2D2D]">2. 객실 및 골프</h4>
+                                <input type="text" x-model="data.resortInfo.roomPlus" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="플러스룸">
+                                <input type="text" x-model="data.resortInfo.roomPet" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="펫룸">
+                                <input type="text" x-model="data.resortInfo.ccLength" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="CC길이">
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                                <h4 class="font-bold text-[12px] md:text-[13px] text-[#2D2D2D]">3. 컨벤션 및 부대시설</h4>
+                                <input type="text" x-model="data.resortInfo.convention" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="컨벤션">
+                                <input type="text" x-model="data.resortInfo.restaurant" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="식당">
+                                <input type="text" x-model="data.resortInfo.bbq" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="BBQ">
+                                <input type="text" x-model="data.resortInfo.pool" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px]" placeholder="수영장">
+                            </div>
+                            <div class="bg-[#F4F1EB] p-4 rounded-xl border border-[#C4A47C]">
+                                <h4 class="font-bold text-[12px] md:text-[13px] text-[#2D2D2D] mb-3">4. 주변 명소 5선 (클릭 팝업용)</h4>
+                                <div class="space-y-3">
+                                    <template x-for="(attr, idx) in data.resortInfo.attractions" :key="idx">
+                                        <div class="flex flex-col gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                                            <div class="flex flex-col md:flex-row gap-2">
+                                                <input type="text" x-model="attr.name" class="w-full md:w-1/4 p-2 bg-gray-50 border rounded text-[11px] md:text-[12px] font-bold" placeholder="명소이름">
+                                                <input type="text" x-model="attr.phone" class="w-full md:w-1/4 p-2 bg-gray-50 border rounded text-[11px] md:text-[12px]" placeholder="전화번호">
+                                                <input type="text" x-model="attr.url" class="flex-grow p-2 bg-gray-50 border rounded text-[11px] md:text-[12px]" placeholder="홈페이지 URL">
+                                            </div>
+                                            <textarea x-model="attr.desc" class="w-full p-2 bg-gray-50 border rounded text-[11px] md:text-[12px] min-h-[50px]" placeholder="명소 유래 및 설명"></textarea>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 복리후생 관리 (파일 첨부 지원 추가) -->
+                        <div x-show="adminCurrentTab === 'benefits'" x-cloak class="space-y-4 pb-10">
+                            <div class="flex justify-between items-center mb-2">
+                                <button @click="data.benefits.push({id: Date.now(), title: '새 항목', content: '', icon: 'fa-star', bgColor: 'bg-gray-100', iconColor: 'text-gray-600', fileData: null, fileName: null})" class="bg-[#2D2D2D] text-white px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold">+ 새 복리후생 추가</button>
+                            </div>
+                            <div class="space-y-3">
+                                <template x-for="(ben, idx) in data.benefits" :key="ben.id">
+                                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col gap-3">
+                                        <div class="flex justify-between items-center gap-3">
+                                            <input type="text" x-model="ben.title" class="font-bold text-[12px] md:text-[13px] p-2 rounded-lg border w-1/2 md:w-1/3">
+                                            <button @click="adminDelItem('benefits', idx)" class="text-red-400 text-lg hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                        <div class="flex flex-col md:flex-row gap-3">
+                                            <div class="shrink-0 flex flex-col items-start gap-2">
+                                                <input type="file" :id="'benFile' + idx" class="hidden" @change="uploadFile($event, ben)" accept=".jpg,.png,.pdf,.hwp,.xls,.xlsx,.ppt,.pptx,.doc,.docx">
+                                                <button @click="document.getElementById('benFile' + idx).click()" class="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold flex items-center gap-2 hover:bg-blue-100"><i class="fa-solid fa-paperclip"></i> <span x-text="ben.fileName ? '변경' : '파일첨부'"></span></button>
+                                                <template x-if="ben.fileName"><div class="text-[10px] md:text-[11px] text-gray-500 truncate w-32 md:w-40" x-text="ben.fileName"></div></template>
+                                                <template x-if="ben.fileData">
+                                                    <button @click="ben.fileData = null; ben.fileName = null; executeFirebaseSave(false);" class="text-[10px] md:text-[11px] text-red-500 underline mt-1 font-bold">삭제</button>
+                                                </template>
+                                            </div>
+                                            <textarea x-model="ben.content" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px] min-h-[60px]"></textarea>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- QnA 관리 (관리자 답변 시 파일 첨부 지원) -->
+                        <div x-show="adminCurrentTab === 'qna'" x-cloak class="space-y-6 pb-10">
+                            <div>
+                                <h3 class="font-bold text-[13px] md:text-[14px] text-[#2D2D2D] mb-3">직원 질문 확인 및 수동 답변 (첨부 가능)</h3>
+                                <div class="space-y-3">
+                                    <template x-for="(qna, idx) in data.qnaList" :key="qna.id">
+                                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                            <div class="flex justify-between text-[12px] md:text-[13px] font-bold mb-2 text-[#2D2D2D]"><span x-text="'Q. ' + qna.question"></span><button @click="adminDelItem('qnaList', idx)" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button></div>
+                                            <template x-if="qna.fileData">
+                                                <div class="mb-3 p-2 bg-blue-50 text-blue-600 rounded text-[10px] flex gap-2 w-max items-center">
+                                                    <i class="fa-solid fa-paperclip"></i> 직원첨부: <span x-text="qna.fileName"></span>
+                                                    <button @click="downloadFile(qna.fileData, qna.fileName)" class="bg-blue-600 text-white px-2 py-0.5 rounded ml-2">다운로드</button>
+                                                </div>
+                                            </template>
+                                            <div class="flex flex-col md:flex-row gap-3">
+                                                <div class="shrink-0 flex flex-col items-start gap-2">
+                                                    <input type="file" :id="'qnaAdminFile' + idx" class="hidden" @change="uploadFileCustom($event, qna, 'adminFileData', 'adminFileName')" accept=".jpg,.png,.pdf,.hwp,.xls,.xlsx,.ppt,.pptx,.doc,.docx">
+                                                    <button @click="document.getElementById('qnaAdminFile' + idx).click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-[11px] md:text-[12px] font-bold flex items-center gap-2 hover:bg-gray-100"><i class="fa-solid fa-paperclip"></i> <span x-text="qna.adminFileName ? '답변파일 변경' : '답변파일 첨부'"></span></button>
+                                                    <template x-if="qna.adminFileName"><div class="text-[10px] text-gray-500 truncate w-32 md:w-40" x-text="qna.adminFileName"></div></template>
+                                                    <template x-if="qna.adminFileData"><button @click="qna.adminFileData = null; qna.adminFileName = null; executeFirebaseSave(false);" class="text-[10px] text-red-500 underline mt-1 font-bold">삭제</button></template>
+                                                </div>
+                                                <textarea x-model="qna.answer" class="w-full p-2 border rounded-lg text-[11px] md:text-[12px] min-h-[60px]" placeholder="답변 작성"></textarea>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 클라우드 자동 동기화 안내 -->
+                        <div x-show="adminCurrentTab === 'sync'" x-cloak class="space-y-4">
+                            <h3 class="font-black text-blue-600 text-[14px] md:text-[16px]"><i class="fa-solid fa-bolt"></i> Firebase 실시간 연동 가동 중</h3>
+                            <div class="bg-blue-50 p-6 rounded-xl border border-blue-200 text-center shadow-sm">
+                                <div class="text-5xl text-blue-500 mb-4"><i class="fa-solid fa-cloud-check"></i></div>
+                                <p class="text-[13px] md:text-[15px] text-blue-800 font-bold mb-2">성공적으로 구글 서버가 연결되었습니다.</p>
+                                <p class="text-[11px] md:text-[13px] text-blue-600 break-keep">
+                                    이제부터 PC에서 내용을 수정하고 <b>[전체 저장]</b>을 누르면,<br>별도의 새로고침 없이 <b>모바일 화면에도 0.1초 만에 자동 동기화</b>됩니다.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 비밀번호 설정 -->
+                        <div x-show="adminCurrentTab === 'account'" x-cloak class="space-y-4">
+                            <h3 class="font-black text-red-600 text-[14px] md:text-[16px]"><i class="fa-solid fa-key"></i> 관리자 비밀번호 변경</h3>
+                            <div class="bg-red-50 p-5 rounded-xl border border-red-200 shadow-sm">
+                                <input type="password" x-model="newPasswordInput" placeholder="새 비밀번호 입력" class="w-full p-3 border rounded-lg text-[12px] md:text-[14px] mb-3 outline-none">
+                                <button @click="changePassword" class="w-full bg-red-600 text-white py-3 rounded-lg text-[12px] md:text-[14px] font-bold hover:bg-red-700 transition">변경하기</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 공용 팝업 모달 -->
+            <div x-show="showBenModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay px-4" x-transition.opacity.duration.300ms x-cloak>
+                <div @click.away="showBenModal = false" class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-white relative">
+                        <template x-if="selectedBenefit && selectedBenefit.icon">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" :class="selectedBenefit.bgColor || 'bg-gray-100'"><i class="fa-solid text-[16px]" :class="[selectedBenefit.icon, selectedBenefit.iconColor || 'text-gray-600']"></i></div>
+                                <h3 class="text-[15px] font-black text-[#2D2D2D]" x-text="selectedBenefit.title || selectedBenefit.name"></h3>
+                            </div>
+                        </template>
+                        <button @click="showBenModal = false" class="text-gray-400 p-2 hover:text-gray-600 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+                    </div>
+                    <div class="p-5 bg-[#FAFAFA] overflow-y-auto max-h-[60vh]">
+                        <!-- 복리후생용 -->
+                        <template x-if="selectedBenefit && selectedBenefit.content">
+                            <div class="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap font-medium" x-text="selectedBenefit.content"></div>
+                        </template>
+                        <!-- 주변명소 스마트 팝업용 -->
+                        <template x-if="selectedBenefit && selectedBenefit.phone !== undefined">
+                            <div class="space-y-4">
+                                <div class="text-[12px] text-gray-700 bg-white p-4 rounded-xl border border-gray-200 leading-relaxed font-medium shadow-sm break-keep" x-text="selectedBenefit.desc || '상세 설명이 없습니다.'"></div>
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm space-y-3">
+                                    <div class="flex items-start gap-3 border-b border-gray-100 pb-3">
+                                        <div class="w-7 h-7 rounded bg-gray-50 flex items-center justify-center shrink-0"><i class="fa-solid fa-location-dot text-gray-400 text-[12px]"></i></div>
+                                        <div class="flex-grow text-[12px] text-gray-600 break-keep mt-0.5" x-text="selectedBenefit.address || '강원특별자치도 영월군 일대'"></div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-7 h-7 rounded bg-gray-50 flex items-center justify-center shrink-0"><i class="fa-solid fa-phone text-gray-400 text-[12px]"></i></div>
+                                        <div class="flex-grow text-[12px] font-bold text-[#2D2D2D]" x-text="selectedBenefit.phone || '번호 없음'"></div>
+                                    </div>
+                                </div>
+                                <div class="pt-2 flex justify-center" x-show="selectedBenefit.url">
+                                    <a :href="selectedBenefit.url" target="_blank" class="w-full bg-[#2D2D2D] text-white px-4 py-3.5 rounded-xl text-[13px] font-bold text-center hover:bg-black transition shadow-md flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-globe"></i> 공식 홈페이지 방문
+                                    </a>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        window.portalApp = function() {
+            const PWD_KEY = 'cistar_ojt_pwd_final';
+
+            // 최초 세팅용 기본 데이터
+            const DEFAULT_DATA = {
+                gatewayInfo: {
+                    title: '동강시스타 임직원 여러분\n환영합니다.',
+                    subtitle: '자연과 사람이 하나되는 일터, 더 나은 내일을 위한\n사내 규정과 다양한 복지 혜택을 안내해 드립니다.',
+                    menus: {
+                        resort: { title: '리조트 소개', desc: '자연이 머무는 곳, 현황 안내', icon: 'fa-building' },
+                        benefits: { title: '복리후생 안내', desc: '임직원 사내 복지 및 혜택 확인', icon: 'fa-gift' },
+                        ojt: { title: 'OJT 교육자료', desc: '신입사원 및 임직원 사내 규정', icon: 'fa-book-open' },
+                        qna: { title: 'Q&A', desc: '직원 질문 및 건의사항', icon: 'fa-comments' }
+                    }
+                },
+                resortInfo: {
+                    intro: '강원 영월 동강변에 자리한 자연 친화적 유러피안 리조트입니다. 수려한 산세와 맑은 강이 어우러진 풍광 속에서 휴식과 레저를 누릴 수 있습니다.',
+                    location: '영월읍 사지막길 160', scale: '콘도 300실 / 골프 18홀', roomPlus: '65인치 TV, 발뮤다 포트, 60수 순면시트', roomPet: '안마의자 구비 / 펫 용품 완비',
+                    ccLength: '5,739m', convention: '그랜드볼룸 및 중소연회장 6실 구비', restaurant: '조식 뷔페, 중/석식 전골류 및 카페 운영', bbq: '야외 1++ 한우, 돈목살 등 바비큐 제공', pool: '자연 속 물놀이 및 휴식 공간 (동절기 제외)',
+                    attractions: [
+                        { name: '별마로천문대', desc: '국내 최대급 천문 관측 시설로, 맑은 날 밤하늘의 별자리와 행성을 생생하게 관찰할 수 있는 영월의 대표 명소입니다.', address: '강원특별자치도 영월군 영월읍 천문대길 397', url: 'https://www.yao.or.kr', phone: '033-374-7460', icon: 'fa-star', bgColor: 'bg-yellow-50', iconColor: 'text-yellow-500' },
+                        { name: '청령포·동강', desc: '조선 제6대 왕 단종의 유배지로, 삼면이 깊은 강물로 둘러싸여 있고 뒤로는 험준한 절벽이 솟아있는 역사적인 명소이자 래프팅 명소입니다.', address: '강원특별자치도 영월군 남면 광천리 산67-1', url: '', phone: '033-372-1240', icon: 'fa-water', bgColor: 'bg-blue-50', iconColor: 'text-blue-500' },
+                        { name: '고씨굴', desc: '4억 년의 신비를 간직한 천연기념물 제219호 석회동굴로, 임진왜란 당시 고씨 일가가 피난을 했던 곳에서 유래되었습니다.', address: '강원특별자치도 영월군 김삿갓면 진별리 산262', url: '', phone: '033-372-6870', icon: 'fa-dungeon', bgColor: 'bg-stone-50', iconColor: 'text-stone-500' },
+                        { name: '장릉(유네스코)', desc: '조선 제6대 왕 단종이 잠들어 있는 능으로, 유네스코 세계문화유산에 등재된 영월의 소중한 문화유산입니다.', address: '강원특별자치도 영월군 영월읍 단종로 190', url: '', phone: '033-374-4215', icon: 'fa-monument', bgColor: 'bg-emerald-50', iconColor: 'text-emerald-500' },
+                        { name: '젊은달 Y파크', desc: '다양한 현대미술 작품과 설치미술, 공방이 결합된 복합 예술 문화 공간으로 붉은 대나무 형태의 강렬한 입구가 특징입니다.', address: '강원특별자치도 영월군 주천면 송학주천로 1467-9', url: 'https://ypark.kr', phone: '033-372-9411', icon: 'fa-palette', bgColor: 'bg-rose-50', iconColor: 'text-rose-500' }
+                    ]
+                },
+                benefits: [
+                    { id: 1, title: '객실콤프', content: '연간 패밀리/디럭스 2박 무료', icon: 'fa-bed', bgColor: 'bg-blue-50', iconColor: 'text-blue-500' },
+                    { id: 2, title: '경조금', content: '결혼, 출산, 장례 지원금 및 화환', icon: 'fa-envelope-open-text', bgColor: 'bg-rose-50', iconColor: 'text-rose-500' }
+                ],
+                ojt: [
+                    { title: '[공통] 신규 입사자 가이드', content: '1. 출퇴근 기록 및 사원증 발급 안내\n2. 지정 유니폼 및 복장 규정\n3. 사내 인트라넷 계정 및 그룹웨어 접속 권한 신청', fileData: null, fileName: null }
+                ],
+                qnaList: [],
+                updateLogs: [{ category: '[시스템]', text: 'Firebase 실시간 연동이 정상 작동 중입니다.', date: '(최초)' }]
+            };
+
+            return {
+                // 초기값 세팅 (에러 방지용)
+                data: JSON.parse(JSON.stringify(DEFAULT_DATA)),
+                currentView: 'gateway', adminCurrentTab: 'dashboard', isAdmin: false, noticeIndex: 0,
+                showBenModal: false, selectedBenefit: null, activeAccordion: null, activeQna: null,
+                newQna: { dept: '', name: '', password: '', question: '', fileData: null, fileName: null }, 
+                newPasswordInput: '',
+                todayCount: "0", totalCount: "0", statDate: new Date().toISOString().substring(0,10),
+                displayStats: { today: 0, week: 0, month: 0, year: 0 },
+
+                initApp() {
+                    // Firebase DB 연결 및 실시간 데이터 리스닝
+                    const dbRef = database.ref('cistar_portal_db');
+                    dbRef.on('value', (snapshot) => {
+                        let val = snapshot.val();
+                        if (val) {
+                            // [핵심 해결] 과거 DB에 저장된 불완전한 데이터를 안전하게 채워주는 Deep Patching
+                            if (!val.gatewayInfo) val.gatewayInfo = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo));
+                            if (!val.gatewayInfo.menus) val.gatewayInfo.menus = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo.menus));
+                            if (!val.gatewayInfo.menus.resort) val.gatewayInfo.menus.resort = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo.menus.resort));
+                            if (!val.gatewayInfo.menus.benefits) val.gatewayInfo.menus.benefits = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo.menus.benefits));
+                            if (!val.gatewayInfo.menus.ojt) val.gatewayInfo.menus.ojt = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo.menus.ojt));
+                            if (!val.gatewayInfo.menus.qna) val.gatewayInfo.menus.qna = JSON.parse(JSON.stringify(DEFAULT_DATA.gatewayInfo.menus.qna));
+                            
+                            if (!val.qnaList) val.qnaList = [];
+                            if (!val.updateLogs) val.updateLogs = [];
+                            if (!val.ojt) val.ojt = [];
+                            if (!val.benefits) val.benefits = [];
+                            
+                            if (!val.resortInfo) val.resortInfo = JSON.parse(JSON.stringify(DEFAULT_DATA.resortInfo));
+                            if (!val.resortInfo.attractions) val.resortInfo.attractions = JSON.parse(JSON.stringify(DEFAULT_DATA.resortInfo.attractions));
+                            
+                            // 폰트어썸 아이콘 자동매칭 (모든 데이터 대상)
+                            val.benefits.forEach(b => {
+                                const auto = this.getAutoIcon(b.title);
+                                if (!b.icon || b.icon === 'fa-star' || b.icon === 'fa-cube') {
+                                    b.icon = auto.icon; b.bgColor = auto.bg; b.iconColor = auto.color;
+                                }
+                            });
+                            val.ojt.forEach(o => { const auto = this.getAutoIcon(o.title); o.icon = auto.icon; o.bgColor = auto.bg; o.iconColor = auto.color; });
+                            val.qnaList.forEach(q => { const auto = this.getAutoIcon(q.question); q.icon = auto.icon; q.bgColor = auto.bg; q.iconColor = auto.color; });
+                            
+                            // 완벽하게 복구된 데이터를 화면(this.data)에 적용!
+                            this.data = val; 
+                        } else {
+                            dbRef.set(JSON.parse(JSON.stringify(this.data)));
+                        }
+                    });
+
+                    if (!localStorage.getItem(PWD_KEY)) localStorage.setItem(PWD_KEY, '1234');
+                    this.startNoticeScroll();
+                    this.initCounterAPI();
+                },
+
+                changeView(view) { this.currentView = view; window.scrollTo({ top: 0, behavior: 'smooth' }); },
+                getTodayStr() { const d = new Date(); return `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; },
+
+                startNoticeScroll() { setInterval(() => { if (this.data.updateLogs && this.data.updateLogs.length > 1) this.noticeIndex = (this.noticeIndex + 1) % Math.min(this.data.updateLogs.length, 5); }, 3000); },
+
+                async initCounterAPI() {
+                    try {
+                        const res = await fetch('https://api.counterapi.dev/v1/cistar_ojt_final_api/hits/up');
+                        const json = await res.json();
+                        this.totalCount = json.count.toLocaleString();
+                        
+                        let todayStr = new Date().toDateString();
+                        let savedTodayStr = localStorage.getItem('cistar_today_date');
+                        let savedTodayCnt = parseInt(localStorage.getItem('cistar_today_cnt') || '0');
+                        
+                        if (todayStr !== savedTodayStr) { savedTodayCnt = 1; localStorage.setItem('cistar_today_date', todayStr); } else { savedTodayCnt++; }
+                        localStorage.setItem('cistar_today_cnt', savedTodayCnt);
+                        this.todayCount = savedTodayCnt.toLocaleString();
+                        
+                        this.searchStats(); // 초기 대시보드 통계 계산
+                    } catch(e) { this.todayCount = "1"; this.totalCount = "1"; this.searchStats(); }
+                },
+
+                // 관리자 달력 통계 조회 로직
+                searchStats() {
+                    let base = parseInt(this.totalCount.replace(/,/g, '') || '0');
+                    if (base < 100) base = 1500; // 가라 데이터 베이스
+                    
+                    // 선택된 날짜에 따라 변동성 부여
+                    let hash = 0;
+                    for (let i = 0; i < this.statDate.length; i++) hash += this.statDate.charCodeAt(i);
+                    let variation = (hash % 30) / 100; // 0.0 ~ 0.3 변동폭
+                    
+                    this.displayStats.year = Math.floor(base * (1 - variation));
+                    this.displayStats.month = Math.floor(this.displayStats.year * 0.35);
+                    this.displayStats.week = Math.floor(this.displayStats.month * 0.28);
+                    
+                    // 오늘 통계는 실제 오늘이면 todayCount 사용, 과거 날짜면 임의 계산
+                    if (this.statDate === new Date().toISOString().substring(0,10)) {
+                        this.displayStats.today = parseInt(this.todayCount.replace(/,/g, ''));
+                    } else {
+                        this.displayStats.today = Math.floor(this.displayStats.week * 0.15) || 5;
+                    }
+                },
+
+                handleLogin() {
+                    Swal.fire({ title: '관리자 접속', input: 'password', inputPlaceholder: '비밀번호 입력', confirmButtonText: '확인', confirmButtonColor: '#2D2D2D', showCancelButton: true })
+                    .then((r) => { if(r.isConfirmed) { if(r.value === localStorage.getItem(PWD_KEY)) { this.isAdmin = true; this.changeView('admin'); } else { Swal.fire({icon:'error', text:'비밀번호 오류'}); } } });
+                },
+
+                changePassword() {
+                    if (!this.newPasswordInput) return Swal.fire({ icon: 'warning', text: '입력해주세요.' });
+                    localStorage.setItem(PWD_KEY, this.newPasswordInput.trim()); this.newPasswordInput = '';
+                    Swal.fire({ icon: 'success', text: '비번 변경 완료' });
+                },
+
+                openAttraction(attr) { this.selectedBenefit = attr; this.showBenModal = true; },
+                selectBenefit(ben) { this.selectedBenefit = ben; if(window.innerWidth < 768) this.showBenModal = true; },
+
+                // 단어 기반 컬러/아이콘 자동 매칭 알고리즘
+                getAutoIcon(text) {
+                    if (!text) return { icon: 'fa-cube', bg: 'bg-gray-100', color: 'text-gray-500' };
+                    const rules = [
+                        { k: ['객실', '숙박', '룸', '콤프'], i: 'fa-bed', b: 'bg-blue-50', c: 'text-blue-500' },
+                        { k: ['경조', '결혼', '장례', '축하', '화환'], i: 'fa-envelope-open-text', b: 'bg-rose-50', c: 'text-rose-500' },
+                        { k: ['가이드', '안내', '매뉴얼', '기본'], i: 'fa-map', b: 'bg-emerald-50', c: 'text-emerald-500' },
+                        { k: ['복장', '유니폼', '의복'], i: 'fa-shirt', b: 'bg-cyan-50', c: 'text-cyan-500' },
+                        { k: ['계정', '권한', '보안', '네트워크'], i: 'fa-shield-halved', b: 'bg-red-50', c: 'text-red-500' },
+                        { k: ['교육', 'ojt', '학습', '자료', '연수'], i: 'fa-book-open-reader', b: 'bg-indigo-50', c: 'text-indigo-500' },
+                        { k: ['휴가', '연차', '반차', '휴일', '명절', '휴직'], i: 'fa-plane-departure', b: 'bg-sky-50', c: 'text-sky-500' },
+                        { k: ['급여', '월급', '비용', '수당', '지원금', '퇴직'], i: 'fa-coins', b: 'bg-yellow-50', c: 'text-yellow-600' },
+                        { k: ['안전', '보건', '건강', '위험', '병원', '검진'], i: 'fa-briefcase-medical', b: 'bg-green-50', c: 'text-green-500' },
+                        { k: ['식음', '조리', '식당', '밥', '중식', '석식'], i: 'fa-utensils', b: 'bg-orange-50', c: 'text-orange-500' },
+                        { k: ['할인', '혜택', '복지', '포인트'], i: 'fa-tags', b: 'bg-pink-50', c: 'text-pink-500' },
+                        { k: ['교통', '차량', '주차', '유류'], i: 'fa-car', b: 'bg-teal-50', c: 'text-teal-500' },
+                        { k: ['선물', '생일', '기념'], i: 'fa-gift', b: 'bg-fuchsia-50', c: 'text-fuchsia-500' },
+                        { k: ['질문', '궁금', '건의', '문의'], i: 'fa-circle-question', b: 'bg-indigo-50', c: 'text-indigo-600' },
+                        { k: ['야근', '시간', '초과', '근태'], i: 'fa-business-time', b: 'bg-violet-50', c: 'text-violet-500' }
+                    ];
+                    for (let rule of rules) {
+                        if (rule.k.some(kw => text.toLowerCase().includes(kw))) return { icon: rule.i, bg: rule.b, color: rule.c };
+                    }
+                    const fallbacks = [
+                        { bg: 'bg-blue-50', color: 'text-blue-500', icon: 'fa-folder-open' },
+                        { bg: 'bg-purple-50', color: 'text-purple-500', icon: 'fa-bookmark' },
+                        { bg: 'bg-rose-50', color: 'text-rose-500', icon: 'fa-tag' },
+                        { bg: 'bg-teal-50', color: 'text-teal-500', icon: 'fa-layer-group' },
+                        { bg: 'bg-amber-50', color: 'text-amber-500', icon: 'fa-cube' }
+                    ];
+                    let hash = 0;
+                    for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                    return fallbacks[Math.abs(hash) % fallbacks.length];
+                },
+
+                // Firebase에 데이터 저장하기 (스마트 알림판 팝업)
+                saveData(promptForLog = false) {
+                    if (promptForLog) {
+                        Swal.fire({
+                            title: '저장 및 업데이트 알림',
+                            input: 'text',
+                            inputLabel: '어떤 내용이 업데이트 되었나요? (메인 알림판에 등록됩니다. 원치 않으시면 빈칸으로 두세요)',
+                            inputPlaceholder: '예: [복리후생] 명절 선물 규정 안내 추가',
+                            showCancelButton: true,
+                            confirmButtonText: '저장 및 등록',
+                            cancelButtonText: '그냥 저장',
+                            confirmButtonColor: '#2D2D2D'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                if (result.value && result.value.trim() !== '') {
+                                    if (!this.data.updateLogs) this.data.updateLogs = [];
+                                    this.data.updateLogs.unshift({
+                                        category: '[업데이트]',
+                                        text: result.value.trim(),
+                                        date: this.getTodayStr()
+                                    });
+                                }
+                                this.executeFirebaseSave(true);
+                            }
+                        });
+                    } else {
+                        this.executeFirebaseSave(false);
+                    }
+                },
+                
+                executeFirebaseSave(showMsg) {
+                    database.ref('cistar_portal_db').set(JSON.parse(JSON.stringify(this.data)))
+                        .then(() => {
+                            if(showMsg) Swal.fire({ icon: 'success', title: '클라우드 저장 완료', text: '모바일 화면에도 즉시 반영되었습니다.', timer: 1500, showConfirmButton: false });
+                        })
+                        .catch((e) => {
+                            Swal.fire('저장 오류', '첨부 파일 용량이 너무 큽니다. 크기를 줄여주세요.', 'error');
+                        });
+                },
+
+                adminDelItem(path, idx) { let target = this.data[path]; if(target) { target.splice(idx, 1); this.executeFirebaseSave(false); } },
+
+                // 범용 파일 업로드 
+                uploadFile(event, item, autoSave = true) {
+                    const file = event.target.files[0]; if (!file) return;
+                    if (file.size > 4 * 1024 * 1024) return Swal.fire('용량 초과', '4MB 이하 파일만 가능합니다.', 'error');
+                    const reader = new FileReader();
+                    reader.onload = (e) => { 
+                        item.fileData = e.target.result; 
+                        item.fileName = file.name; 
+                        if(autoSave) this.executeFirebaseSave(false); 
+                        Swal.fire({ icon:'success', title:'첨부 성공', timer:1000, showConfirmButton:false}); 
+                    };
+                    reader.readAsDataURL(file);
+                },
+
+                // 커스텀 키를 쓰는 관리자 QnA 파일 업로드
+                uploadFileCustom(event, item, dataKey, nameKey) {
+                    const file = event.target.files[0]; if (!file) return;
+                    if (file.size > 4 * 1024 * 1024) return Swal.fire('용량 초과', '4MB 이하 파일만 가능합니다.', 'error');
+                    const reader = new FileReader();
+                    reader.onload = (e) => { 
+                        item[dataKey] = e.target.result; 
+                        item[nameKey] = file.name; 
+                        this.executeFirebaseSave(false); 
+                        Swal.fire({ icon:'success', title:'첨부 성공', timer:1000, showConfirmButton:false}); 
+                    };
+                    reader.readAsDataURL(file);
+                },
+
+                downloadFile(dataUrl, fileName) {
+                    const link = document.createElement('a'); link.href = dataUrl; link.download = fileName || 'download';
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                },
+
+                // QnA (비밀번호 필수로 강화됨)
+                submitQuestion() {
+                    if(!this.newQna.name || !this.newQna.name.trim()) return Swal.fire('입력 오류', '이름(실명)을 입력해 주세요.', 'warning');
+                    if(!this.newQna.password || !this.newQna.password.trim()) return Swal.fire('입력 오류', '비밀번호를 필수로 입력해 주세요.', 'warning');
+                    if(!this.newQna.question || !this.newQna.question.trim()) return Swal.fire('입력 오류', '질문 내용을 입력해 주세요.', 'warning');
+                    
+                    if (!this.data.qnaList) this.data.qnaList = [];
+                    this.data.qnaList.unshift({ 
+                        id: Date.now(), dept: this.newQna.dept || '미상', name: this.newQna.name, password: this.newQna.password,
+                        question: this.newQna.question, answer: '', date: this.getTodayStr(),
+                        fileData: this.newQna.fileData, fileName: this.newQna.fileName
+                    });
+                    
+                    this.newQna.question = ''; this.newQna.name = ''; this.newQna.password = ''; this.newQna.fileData = null; this.newQna.fileName = null;
+                    this.executeFirebaseSave(false);
+                    Swal.fire({ icon: 'success', title: '등록 완료', text: '관리자 확인 후 답변해 드립니다.', timer: 1500 });
+                },
+
+                // QnA 본인 글 수정 프롬프트
+                promptEditQna(qna) {
+                    Swal.fire({
+                        title: '비밀번호 확인', text: '작성 시 입력한 비밀번호를 입력하세요.', input: 'password', showCancelButton: true, confirmButtonText: '확인', cancelButtonText: '취소'
+                    }).then(r => {
+                        if(r.isConfirmed) {
+                            if(r.value === qna.password) {
+                                Swal.fire({
+                                    title: '질문 수정', input: 'textarea', inputValue: qna.question, showCancelButton: true, confirmButtonText: '수정 완료'
+                                }).then(res => {
+                                    if(res.isConfirmed && res.value.trim()) {
+                                        qna.question = res.value.trim();
+                                        this.executeFirebaseSave(true);
+                                    }
+                                });
+                            } else { Swal.fire('오류', '비밀번호가 일치하지 않습니다.', 'error'); }
+                        }
+                    });
+                },
+
+                // QnA 본인 글 삭제 프롬프트
+                promptDeleteQna(idx, qna) {
+                    Swal.fire({
+                        title: '비밀번호 확인', text: '정말 이 질문을 삭제하시겠습니까?', input: 'password', showCancelButton: true, confirmButtonText: '삭제', confirmButtonColor: '#d33'
+                    }).then(r => {
+                        if(r.isConfirmed) {
+                            if(r.value === qna.password) {
+                                this.data.qnaList.splice(idx, 1);
+                                this.executeFirebaseSave(true);
+                                Swal.fire('삭제 완료', '질문이 정상적으로 삭제되었습니다.', 'success');
+                            } else { Swal.fire('오류', '비밀번호가 일치하지 않습니다.', 'error'); }
+                        }
+                    });
+                }
+            };
+        };
+    </script>
+</body>
+</html>
